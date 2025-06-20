@@ -1,12 +1,14 @@
 import pandas as pd
-from sklearn.datasets import load_iris
+import time
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.metrics import classification_report
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 meuDataSet = 'dadosExcel_dataSet.xlsx'
 
@@ -106,16 +108,84 @@ print(' Target: ',y)
 
 
 #tratamento de dados em branco/faltantes
-for col in x.columns:
-    if x[col].isnull().any():
-        if x[col].dtype in ['int64', 'float64']:
-            valorPreencherBranco = x[col].median()
-            x[col].fillna(valorPreencherBranco, inplace=True)
-        else:
-            valorPreencherBranco = x[col].mode()[0]
-            x[col].fillna(valorPreencherBranco, inplace=True)
-    else:
-        print(f"Coluna '{col}' não tem dados faltando. Ótimo!")
+#for col in x.columns:
+#    if x[col].isnull().any():
+#        if x[col].dtype in ['int64', 'float64']:
+#            valorPreencherBranco = x[col].median()
+#            x[col].fillna(valorPreencherBranco, inplace=True)
+#        else:
+#            valorPreencherBranco = x[col].mode()[0]
+#            x[col].fillna(valorPreencherBranco, inplace=True)
+#    else:
+#        print(f"Coluna '{col}' não tem dados faltando. Ótimo!")
         
 #avaliando se ficou algum dado em branco. Deve ficar igual a zero
-print(f"\nTotal de dados faltando após preencher: {x.isnull().sum().sum()}")
+#print(f"\nTotal de dados faltando após preencher: {x.isnull().sum().sum()}")
+
+
+# Codificar variáveis categóricas e booleanas
+le = LabelEncoder()
+for col in x.select_dtypes(include=['object', 'bool']).columns:
+    x[col] = le.fit_transform(x[col])
+
+# Codificar variável alvo
+y_encoded = le.fit_transform(y)
+
+
+if 'faixa_etaria' in x.columns:
+    x = x.drop(columns=['faixa_etaria'])
+
+# Normalizar os dados
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(x)
+
+# Dividir conjunto em treino e teste
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y_encoded, test_size=0.2, random_state=42
+)
+
+# Definir os modelos
+models = {
+    "Decision Tree": DecisionTreeClassifier(),
+    "K-Nearest Neighbors": KNeighborsClassifier(),
+    "Logistic Regression": LogisticRegression(max_iter=1000)
+}
+
+# Avaliação dos modelos
+results = {}
+print("\n=== RESULTADOS DOS MODELOS ===\n")
+
+for model_name, model in models.items():
+    start = time.time()
+    model.fit(X_train, y_train)
+    end = time.time()
+
+    y_pred = model.predict(X_test)
+    report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
+
+    results[model_name] = {
+        "accuracy": report['accuracy'],
+        "precision": report['macro avg']['precision'],
+        "recall": report['macro avg']['recall'],
+        "f1-score": report['macro avg']['f1-score'],
+        "train_time_sec": round(end - start, 4)
+    }
+
+    # Impressão detalhada
+    print(f"\nModelo: {model_name}")
+    print(f"Acurácia: {report['accuracy']:.4f}")
+    print(f"Precisão média: {report['macro avg']['precision']:.4f}")
+    print(f"Recall médio: {report['macro avg']['recall']:.4f}")
+    print(f"F1-score médio: {report['macro avg']['f1-score']:.4f}")
+    print(f"Tempo de treinamento: {round(end - start, 4)} segundos")
+
+    print("\nDesempenho por classe:")
+    for label in report.keys():
+        if label not in ['accuracy', 'macro avg', 'weighted avg']:
+            print(f"Classe {label}: F1={report[label]['f1-score']:.4f}, Precision={report[label]['precision']:.4f}, Recall={report[label]['recall']:.4f}")
+
+# Exibir resultados em formato de tabela
+print("\n=== TABELA DE COMPARAÇÃO FINAL ===")
+print(f"{'Modelo':<22} {'Acurácia':<10} {'Precisão':<10} {'Recall':<10} {'F1-score':<10} {'Tempo (s)':<10}")
+for model, metrics in results.items():
+    print(f"{model:<22} {metrics['accuracy']:.4f}     {metrics['precision']:.4f}    {metrics['recall']:.4f}    {metrics['f1-score']:.4f}    {metrics['train_time_sec']:.4f}")
