@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.impute import SimpleImputer
 
 meuDataSet = 'dadosExcel_dataSet.xlsx'
 
@@ -22,7 +23,6 @@ except Exception  as e:
 if not isinstance(lendo, pd.DataFrame):
     raise ValueError("Arquivo nao carregado")
 
-
 #criando uma cópia de segurança
 dados = lendo.copy()
 
@@ -32,15 +32,14 @@ dados = lendo.copy()
 
 #remove colunas que não precisam ser contabilizadas
 colunas_removidas = ["id","name","country","city"]
-
 dados = dados.drop(columns=[col for col in colunas_removidas if col in dados.columns])
 
 #exibe as primeiras linhas do dataFrame
 print("Informações: ")
 print(dados.head())
 
-#target
-target = 'therapy_history'
+#Coluna alvo - target
+target = 'Historico_Terapia'
 
 #verificar se o target está sendo reconhecido ainda
 if target not in  dados.columns:
@@ -55,7 +54,6 @@ print("\nValores únicos por coluna:")
 for col in dados.columns:
     print(f"{col}: {dados[col].unique()[:5]}...")
 
-    
 #dados faltantes nas colunas
 print("Colunas com dados faltantes")
 print(dados.isnull().sum())
@@ -65,29 +63,27 @@ print(dados[target].value_counts())
 
 print("\nNúmero total de instâncias:", dados.shape[0])
 
-
 #dados para grafico - relação idade x therapy
 # Gráfico da distribuição do atributo classe
 plt.figure(figsize=(8, 4))
-sns.countplot(x=target, data=dados)
-plt.title("Distribuição da variável alvo (therapy_history)")
+sns.countplot(x=target, data=dados, saturation=1.0, color='red')
+plt.title("Distribuição da variável alvo (Historico_Terapia)")
 plt.xlabel("Valor")
 plt.ylabel("Frequência")
 plt.tight_layout()
 plt.savefig("grafico_classe.png")
 plt.show()
 
-
 #Gráfico da distribuição do atributo  classe
 bins = [0,18,30,45,60,100]
 labels = ['<18', '18-30', '31-45', '46-60', '60+']
 dados['faixa_etaria'] = pd.cut(dados['age'], bins=bins, labels=labels, include_lowest=True)
 
-#Remove valores nulos da variável therapy_history
-idade_terapia = dados.dropna(subset=['therapy_history'])
+#Remove valores nulos da variável Historico_Terapia
+idade_terapia = dados.dropna(subset=['Historico_Terapia'])
 
 plt.figure(figsize=(10, 6))
-sns.countplot(data=idade_terapia, x='faixa_etaria', hue='therapy_history')
+sns.countplot(data=idade_terapia, x='faixa_etaria', hue='Historico_Terapia', color='orange')
 plt.title("Distribuição de terapia por faixa etária")
 plt.xlabel("Faixa Etária")
 plt.ylabel("Quantidade de Pessoas")
@@ -96,16 +92,12 @@ plt.tight_layout()
 plt.savefig("grafico_idade_terapia.png")
 plt.show()
 
-
-
-
 #separando features x de target y
 x = dados.drop(columns=target) #todas as colunas, menos meu alvo = X
 y = dados[target] #somente meu alvo = Y
 
 #print(' xxxx: ',x)
 print(' Target: ',y)
-
 
 #tratamento de dados em branco/faltantes
 #for col in x.columns:
@@ -131,9 +123,13 @@ for col in x.select_dtypes(include=['object', 'bool']).columns:
 # Codificar variável alvo
 y_encoded = le.fit_transform(y)
 
-
 if 'faixa_etaria' in x.columns:
     x = x.drop(columns=['faixa_etaria'])
+
+#removendo os dados NaN
+x = x.dropna()
+y_encoded = y_encoded[x.index]
+
 
 # Normalizar os dados
 scaler = StandardScaler()
@@ -188,4 +184,4 @@ for model_name, model in models.items():
 print("\n=== TABELA DE COMPARAÇÃO FINAL ===")
 print(f"{'Modelo':<22} {'Acurácia':<10} {'Precisão':<10} {'Recall':<10} {'F1-score':<10} {'Tempo (s)':<10}")
 for model, metrics in results.items():
-    print(f"{model:<22} {metrics['accuracy']:.4f}     {metrics['precision']:.4f}    {metrics['recall']:.4f}    {metrics['f1-score']:.4f}    {metrics['train_time_sec']:.4f}")
+    print(f"{model:<22} {metrics['accuracy']:.4f}     {metrics['precision']:.4f}    {metrics['recall']:.4f}     {metrics['f1-score']:.4f}      {metrics['train_time_sec']:.4f}")
