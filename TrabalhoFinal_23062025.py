@@ -2,16 +2,15 @@ import pandas as pd
 import time
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import classification_report
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.impute import SimpleImputer
+#from sklearn.impute import SimpleImputer
 
-meuDataSet = 'dadosExcel_dataSet.xlsx'
+meuDataSet = 'dadosExcel_dataSet2.xlsx'
 
 try:
     lendo = pd.read_excel(meuDataSet)
@@ -31,10 +30,10 @@ dados = lendo.copy()
 #print(dados.head())
 
 #remove colunas que não precisam ser contabilizadas
-colunas_removidas = ["id","name","country","city"]
+colunas_removidas = ["id","name","country","city","IMC"] #removido IMC - pesquisa com valores IMC fora do comum
 dados = dados.drop(columns=[col for col in colunas_removidas if col in dados.columns])
 
-#exibe as primeiras linhas do dataFrame
+#exibe as primeiras linhas
 print("Informações: ")
 print(dados.head())
 
@@ -44,6 +43,9 @@ target = 'Historico_Terapia'
 #verificar se o target está sendo reconhecido ainda
 if target not in  dados.columns:
     raise ValueError("Target nao foi reconhecido")
+
+#removendo linhas sem valor no target = importante para elevar acurácia e treinametno
+dados = dados.dropna(subset=[target])
 
 #Caracterização dos dados
 print("\nQuantidade de atributos:", dados.drop(columns=[target]).shape[1])
@@ -66,7 +68,7 @@ print("\nNúmero total de instâncias:", dados.shape[0])
 #dados para grafico - relação idade x therapy
 # Gráfico da distribuição do atributo classe
 plt.figure(figsize=(8, 4))
-sns.countplot(x=target, data=dados, saturation=1.0, color='red')
+sns.countplot(x=target, data=dados, saturation=1.0)
 plt.title("Distribuição da variável alvo (Historico_Terapia)")
 plt.xlabel("Valor")
 plt.ylabel("Frequência")
@@ -83,7 +85,7 @@ dados['faixa_etaria'] = pd.cut(dados['age'], bins=bins, labels=labels, include_l
 idade_terapia = dados.dropna(subset=['Historico_Terapia'])
 
 plt.figure(figsize=(10, 6))
-sns.countplot(data=idade_terapia, x='faixa_etaria', hue='Historico_Terapia', color='orange')
+sns.countplot(data=idade_terapia, x='faixa_etaria', hue='Historico_Terapia')
 plt.title("Distribuição de terapia por faixa etária")
 plt.xlabel("Faixa Etária")
 plt.ylabel("Quantidade de Pessoas")
@@ -97,22 +99,19 @@ x = dados.drop(columns=target) #todas as colunas, menos meu alvo = X
 y = dados[target] #somente meu alvo = Y
 
 #print(' xxxx: ',x)
-print(' Target: ',y)
+#print(' Target: ',y)
 
-#tratamento de dados em branco/faltantes
-#for col in x.columns:
-#    if x[col].isnull().any():
-#        if x[col].dtype in ['int64', 'float64']:
-#            valorPreencherBranco = x[col].median()
-#            x[col].fillna(valorPreencherBranco, inplace=True)
-#        else:
-#            valorPreencherBranco = x[col].mode()[0]
-#            x[col].fillna(valorPreencherBranco, inplace=True)
-#    else:
-#        print(f"Coluna '{col}' não tem dados faltando. Ótimo!")
-        
-#avaliando se ficou algum dado em branco. Deve ficar igual a zero
-#print(f"\nTotal de dados faltando após preencher: {x.isnull().sum().sum()}")
+
+
+for col in x.select_dtypes(include=['object','bool']).columns:
+    x[col] = x[col].fillna('Sem informação')
+for col in x.select_dtypes(include=['float64','int64']).columns:
+    x[col] = x[col].fillna(0)
+
+
+
+
+print(f"\nTotal de dados faltando após preencher: {x.isnull().sum().sum()}")
 
 
 # Codificar variáveis categóricas e booleanas
@@ -127,8 +126,8 @@ if 'faixa_etaria' in x.columns:
     x = x.drop(columns=['faixa_etaria'])
 
 #removendo os dados NaN
-x = x.dropna()
-y_encoded = y_encoded[x.index]
+#x = x.dropna()
+#y_encoded = y_encoded[x.index]
 
 
 # Normalizar os dados
